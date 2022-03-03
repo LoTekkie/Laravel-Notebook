@@ -6,6 +6,7 @@
 - [API Resources](#api-resources)
 - [Factories](#factories)
 - [Strategies](#strategies)
+- [Actions](#actions)
 
 ___
 ### Repositories
@@ -311,12 +312,13 @@ Factories allow for a lot more long term flexibility. It allows for a more decou
 
 ___
 ### Strategies
-> The strategy pattern is a behavioral pattern. Defines a family of interchangeable algorithms. It always uses an interface. This means the implementation details remain in separate classes. Its programs are to an interface, not an implementation.
+> Behavioural design pattern that lets you define a family of algorithms, put each of them into a separate class, and make their objects interchangeable. It always uses an interface. This means the implementation details remain in separate classes. Its programs are to an interface, not an implementation.
 
 **Rationale:**  
-
+The strategy pattern is basically a pattern that helps us to decouple our code and make it super extendable. In fact, you probably use it every day with Laravel without even noticing whenever you use the Storage and Cache facades (and a few other places too).  
 **Sources:**   
-* []()
+* [Using the Strategy Pattern in Laravel](https://medium.com/codex/using-the-bridge-pattern-in-laravel-8fbe484817f1)
+* [A brief overview of design patterns used in laravel - Strategy Pattern](https://codesource.io/brief-overview-of-design-pattern-used-in-laravel/#strategy-pattern)
 
 **Examples:**  
 
@@ -353,15 +355,117 @@ ___
     $delivery=>deliver(new ShipDelivery(), $address);
 
 ___
-### 
-> 
+### Actions
+> Classes that take care of one specific task.
 
-**Rationale:**  
+**Rationale:**   
+Logic is maintained in a single file that prevents duplication and allows for lower levels of granularity.
+Provides a more intuitive structure that focuses on your domain whilst embracing the features of Laravel.
+Can be executed as controllers, event listeners, jobs, console commands or simple objects.  
 
-**Sources:**   
-* []()
+**Sources:**
+* [Laravel Actions](https://laravelactions.com/)
+* [Why I wrote Laravel Actions](https://lorisleiva.com/why-i-wrote-laravel-actions/)
 
 **Examples:**  
+
+*Action Implementation (As Object)*  
+
+    namespace App\Authentication\Actions;
+
+    use Lorisleiva\Actions\Concerns\AsAction;
+
+    class UpdateUserPassword
+    {
+        use AsAction;
+
+        public function handle(User $user, string $newPassword)
+        {
+            $user->password = Hash::make($newPassword);
+            $user->save();
+        }
+    }
+
+*Action Execution (As Object)*
+
+    // Equivalent to "app(UpdateUserPassword::class)".
+    UpdateUserPassword::make();
+
+    // Equivalent to "UpdateUserPassword::make()->handle($user, 'secret')".
+    UpdateUserPassword::run($user, 'secret');
+
+*Action Implementation (As Controller)*
+
+    class UpdateUserPassword
+    {
+        use AsAction;
+
+        public function rules()
+        {
+            return [
+                'current_password' => ['required'],
+                'password' => ['required', 'confirmed'],
+            ];
+        }
+
+        public function withValidator(Validator $validator, ActionRequest $request)
+        {
+            $validator->after(function (Validator $validator) use ($request) {
+                if (! Hash::check($request->get('current_password'), $request->user()->password)) {
+                    $validator->errors()->add('current_password', 'The current password does not match.');
+                }
+            });
+        }
+
+        public function asController(ActionRequest $request)
+        {
+            $this->handle(
+                $request->user(), 
+                $request->get('password')
+            );
+
+            return redirect()->back();
+        }
+    }
+
+*Action Execution (As Controller)*
+
+	Route::put('auth/password', UpdateUserPassword::class)->middleware('auth');
+    
+*Action Implementation (As Command)*
+
+    class UpdateUserPassword
+    {
+        use AsAction;
+
+        public string $commandSignature = 'user:update-password {user_id} {password}';
+        public string $commandDescription = 'Updates the password a user.';
+
+        public function asCommand(Command $command)
+        {
+            $user = User::findOrFail($command->argument('user_id'));
+
+            $this->handle($user, $command->argument('password'));
+
+            $command->line(sprintf('Password updated for %s.', $user->name));
+        }
+
+        // ...
+    }    
+
+*Action Execution (As Command)*  
+
+    namespace App\Console;
+
+    class Kernel extends ConsoleKernel
+    {
+        protected $commands = [
+            UpdateUserPassword::class,
+        ];
+
+        // ...
+    }
+
 
 ___
 ### 
