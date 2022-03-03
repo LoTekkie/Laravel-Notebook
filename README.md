@@ -3,4 +3,4 @@
 
 ### Table of Contents
 
-- [Useful design patterns in Laravel](https://github.com/LoTekkie/Laravel-Notebook/blob/main/useful_design_patterns.md)
+- [Useful design patterns in Laravel](useful_design_patterns.md)
